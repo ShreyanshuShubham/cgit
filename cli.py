@@ -1,6 +1,5 @@
 import argparse
 import os
-import cgit_main as cgm
 
 def main():
      parser = argparse.ArgumentParser()
@@ -12,15 +11,15 @@ def main():
      init_parser.add_argument("path", nargs="?", default=os.getcwd())
 
      hash_object_parser = commands.add_parser('hash-object')
-     hash_object_parser.add_argument('file')
+     hash_object_parser.add_argument('file',nargs="?",help="Get hash for content for this file")
+     hash_object_parser.add_argument('-w',required=False,action="store_true",help="Write it in the repository")
+     hash_object_parser.add_argument('-t',required=False,action="store",choices=["blob","tree","commit"],help="Type of hash")
+     hash_object_parser.add_argument('-stdin',required=False,action="store_true",help="Read content from standard in")
 
      cat_file_parser = commands.add_parser("cat-file")
      cat_file_parser.add_argument('hash')
      
      ARGS = parser.parse_args()
-
-     print(ARGS.path)
-     exit(0)
      
      match ARGS.command:
         case "add"          : cmd_add(ARGS)
@@ -54,17 +53,23 @@ def cmd_show_ref(): pass
 def cmd_status(): pass
 def cmd_tag(): pass
 
-def cmd_init():
-     os.makedirs(".cgit",exist_ok=True)
-     os.makedirs(".cgit/objects/refs",exist_ok=True)
-     print(f"Initialized empty cgit repository in {os.getcwd()}/{cgm.GIT_DIR}")
+def cmd_init(ARGS):
+     if not os.path.exists(ARGS.path):
+          raise Exception(f"the following path does not exists: {ARGS.path}")
+     elif not os.path.isdir(ARGS.path): 
+          raise Exception(f"the given path is not a directorypip : {ARGS.path}")
+     elif os.path.exists(os.path.join(ARGS.path,".cgit")) and os.path.isdir(os.path.join(ARGS.path,".cgit")):
+          raise Exception(f"the given path already a cgit repository")
+     repo_path=os.path.join(ARGS.path,".cgit")
+     os.makedirs(os.path.join(repo_path,"objects","refs"),exist_ok=True)
+     print(f"Initialized empty cgit repository in {repo_path}")
 
-def cmd_hash_object():
+def cmd_hash_object(ARGS):
      with open(ARGS.file,"rb") as f:
           data = f.read()
      print(cgm.hash_object(data))
 
-def cat_file():
+def cat_file(ARGS):
      print(cgm.cat_file(ARGS.hash))
 
 if __name__ == '__main__':
