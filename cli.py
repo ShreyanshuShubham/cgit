@@ -1,5 +1,11 @@
 import argparse
+import hashlib
 import os
+import sys
+
+def printerr(text:str,error_code:int=1) -> None:
+     print(text,file=sys.stderr)
+     exit(error_code)
 
 def main():
      parser = argparse.ArgumentParser()
@@ -13,7 +19,7 @@ def main():
      hash_object_parser = commands.add_parser('hash-object')
      hash_object_parser.add_argument('file',nargs="?",help="Get hash for content for this file")
      hash_object_parser.add_argument('-w',required=False,action="store_true",help="Write it in the repository")
-     hash_object_parser.add_argument('-t',required=False,action="store",choices=["blob","tree","commit"],help="Type of hash")
+     hash_object_parser.add_argument('-t',required=False,action="store",choices=["blob","tree","commit"],help="Type of hash",default="blob")
      hash_object_parser.add_argument('-stdin',required=False,action="store_true",help="Read content from standard in")
 
      cat_file_parser = commands.add_parser("cat-file")
@@ -37,10 +43,9 @@ def main():
         case "show-ref"     : cmd_show_ref(ARGS)
         case "status"       : cmd_status(ARGS)
         case "tag"          : cmd_tag(ARGS)
-        case _              : raise Exception("Bad cgit command.")
+        case _              : printerr("Bad cgit command.")
 
 def cmd_add(): pass
-def cmd_cat_file(): pass
 def cmd_check_ignore(): pass
 def cmd_checkout(): pass
 def cmd_commit(): pass
@@ -53,24 +58,44 @@ def cmd_show_ref(): pass
 def cmd_status(): pass
 def cmd_tag(): pass
 
-def cmd_init(ARGS):
+def cmd_init(ARGS:argparse.Namespace):
      if not os.path.exists(ARGS.path):
-          raise Exception(f"the following path does not exists: {ARGS.path}")
+          printerr(f"the following path does not exists: {ARGS.path}")
      elif not os.path.isdir(ARGS.path): 
-          raise Exception(f"the given path is not a directorypip : {ARGS.path}")
+          printerr(f"the given path is not a directorypip : {ARGS.path}")
      elif os.path.exists(os.path.join(ARGS.path,".cgit")) and os.path.isdir(os.path.join(ARGS.path,".cgit")):
-          raise Exception(f"the given path already a cgit repository")
+          printerr(f"the given path already a cgit repository")
      repo_path=os.path.join(ARGS.path,".cgit")
-     os.makedirs(os.path.join(repo_path,"objects","refs"),exist_ok=True)
+     os.makedirs(os.path.join(repo_path,"objects"),exist_ok=True)
+     os.makedirs(os.path.join(repo_path,"refs"),exist_ok=True)
      print(f"Initialized empty cgit repository in {repo_path}")
 
 def cmd_hash_object(ARGS):
-     with open(ARGS.file,"rb") as f:
-          data = f.read()
-     print(cgm.hash_object(data))
+     if ARGS.stdin:
+          content = input().encode()
+     else:
+          with open(ARGS.file,"rb") as f:
+               content = f.read()
+     content = ARGS.t.encode() + b'\x00' + content
+     sha1_hash = hashlib.sha1(content).hexdigest()
+     if ARGS.w:
+          cgit_dir = os.path.join(os.getcwd(),".cgit") 
+          sha_dir = os.path.join(os.getcwd(),".cgit","ref",sha1_hash[:2])
+          sha_file = os.path.join(os.getcwd(),".cgit","ref",sha1_hash[:2],sha1_hash[2:])
+          
+          # TODO : write to check for cgit in any parent directory
+          if not (os.path.exists(cgit_dir) and os.path.isdir(cgit_dir)):
+               printerr("current dir is not a cgit repository")
+          
+          os.makedirs(sha_dir,exist_ok=True)
+          with open(sha_file,"wb") as f:
+               f.write(content)
+               pass
+          pass
+     print(sha1_hash)
 
-def cat_file(ARGS):
-     print(cgm.cat_file(ARGS.hash))
+def cmd_cat_file(ARGS:argparse.Namespace) -> None:
+     pass
 
 if __name__ == '__main__':
      main()
