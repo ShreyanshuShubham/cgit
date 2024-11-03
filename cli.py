@@ -90,8 +90,7 @@ def cmd_hash_object(ARGS):
           os.makedirs(sha_dir,exist_ok=True)
           with open(sha_file,"wb") as f:
                f.write(content)
-               pass
-          pass
+     
      print(sha1_hash)
 
 def cmd_cat_file(ARGS:argparse.Namespace) -> None:
