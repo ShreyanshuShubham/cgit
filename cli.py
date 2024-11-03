@@ -49,6 +49,7 @@ def main():
           case "show-ref"     : cmd_show_ref(ARGS)
           case "status"       : cmd_status(ARGS)
           case "tag"          : cmd_tag(ARGS)
+          # custom commands
           case "find-root"    : cmd_find_root(ARGS)
           case _              : printerr("Bad cgit command.")
 
@@ -99,12 +100,11 @@ def cmd_hash_object(ARGS):
      content = ARGS.t.encode() + b'\x00' + content
      sha1_hash = hashlib.sha1(content).hexdigest()
      if ARGS.w:
-          cgit_dir = os.path.join(os.getcwd(),".cgit") 
-          sha_dir = os.path.join(os.getcwd(),".cgit","ref",sha1_hash[:2])
-          sha_file = os.path.join(os.getcwd(),".cgit","ref",sha1_hash[:2],sha1_hash[2:])
-          
-          # TODO : write to check for cgit in any parent directory
-          if not (os.path.exists(cgit_dir) and os.path.isdir(cgit_dir)):
+          repo_root = util_find_root()
+          if repo_root:
+               sha_dir = os.path.join(repo_root,".cgit","ref",sha1_hash[:2])
+               sha_file = os.path.join(repo_root,".cgit","ref",sha1_hash[:2],sha1_hash[2:])
+          else:
                printerr("current dir is not a cgit repository")
           
           os.makedirs(sha_dir,exist_ok=True)
