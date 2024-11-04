@@ -27,7 +27,9 @@ def main():
      find_root_parser = commands.add_parser("find-root")
 
      cat_file_parser = commands.add_parser("cat-file")
-     cat_file_parser.add_argument('hash')
+     cat_file_parser.add_argument("object")
+     cat_file_parser.add_argument('-p',required=False,action="store_true",help="hash of object to print")
+     cat_file_parser.add_argument('-t',required=False,action="store_true",help="hash of object of which type to print")
 
 
      
@@ -102,8 +104,8 @@ def cmd_hash_object(ARGS):
      if ARGS.w:
           repo_root = util_find_root()
           if repo_root:
-               sha_dir = os.path.join(repo_root,".cgit","ref",sha1_hash[:2])
-               sha_file = os.path.join(repo_root,".cgit","ref",sha1_hash[:2],sha1_hash[2:])
+               sha_dir = os.path.join(repo_root,".cgit","objects",sha1_hash[:2])
+               sha_file = os.path.join(repo_root,".cgit","objects",sha1_hash[:2],sha1_hash[2:])
           else:
                printerr("current dir is not a cgit repository")
           
@@ -114,7 +116,20 @@ def cmd_hash_object(ARGS):
      print(sha1_hash)
 
 def cmd_cat_file(ARGS:argparse.Namespace) -> None:
-     pass
+     repo_root = util_find_root()
+     if repo_root:
+          sha_dir = os.path.join(repo_root,".cgit","objects",ARGS.object[:2])
+          sha_file = os.path.join(repo_root,".cgit","objects",ARGS.object[:2],ARGS.object[2:])
+          if not os.path.isfile(sha_file):
+               printerr("object does not exist")
+          with open(sha_file,"rb") as f:
+               content = f.read()
+          if ARGS.p:
+               print(content.split(b'\x00')[1].decode())
+          elif ARGS.t:
+               print(content.split(b'\x00')[0].decode())
+     else:
+          printerr("could not find a cgit repository")
 
 if __name__ == '__main__':
      main()
