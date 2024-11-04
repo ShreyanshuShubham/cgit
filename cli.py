@@ -155,7 +155,7 @@ def util_write_tree(dir_path: str):
           elif e.is_dir(follow_symlinks=False):
                object_type="tree"
                sha1_hash = util_write_tree(full_path)
-          hash_list.append((object_type,sha1_hash,full_path))
+          hash_list.append((object_type,sha1_hash,e.name))
      tree = ''.join (f'{objt} {shash} {name}\n' for objt, shash, name in sorted (hash_list))
      return util_hash_object(tree.encode(),object_type="tree",write=True)
 
