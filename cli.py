@@ -4,6 +4,8 @@ import argparse
 import hashlib
 import os
 import sys
+import collections
+import fnmatch
 
 def printerr(text:str,error_code:int=1) -> None:
      print(text,file=sys.stderr)
@@ -31,7 +33,7 @@ def main():
      cat_file_parser.add_argument('-p',required=False,action="store_true",help="hash of object to print")
      cat_file_parser.add_argument('-t',required=False,action="store_true",help="hash of object of which type to print")
 
-
+     write_tree_parser = commands.add_parser("write-tree")
      
      ARGS = parser.parse_args()
      
@@ -51,6 +53,7 @@ def main():
           case "show-ref"     : cmd_show_ref(ARGS)
           case "status"       : cmd_status(ARGS)
           case "tag"          : cmd_tag(ARGS)
+          case "write-tree"   : cmd_write_tree(ARGS)
           # custom commands
           case "find-root"    : cmd_find_root(ARGS)
           case _              : printerr("Bad cgit command.")
@@ -91,19 +94,15 @@ def cmd_init(ARGS:argparse.Namespace):
      repo_path=os.path.join(ARGS.path,".cgit")
      os.makedirs(os.path.join(repo_path,"objects"),exist_ok=True)
      os.makedirs(os.path.join(repo_path,"refs","heads"),exist_ok=True)
-     with open(os.path.join(repo_path,".cgit","HEAD"),"w") as f:
+     with open(os.path.join(repo_path,"HEAD"),"w") as f:
           f.write("ref: refs/heads/main\n")
      print(f"Initialized empty cgit repository in {repo_path}")
 
-def cmd_hash_object(ARGS):
-     if ARGS.stdin:
-          content = input().encode()
-     else:
-          with open(ARGS.file,"rb") as f:
-               content = f.read()
-     content = ARGS.t.encode() + b'\x00' + content
+def util_hash_object(content:bytes, object_type:str = "blob", write:bool = False) ->  str:
+     
+     content = object_type.encode() + b'\x00' + content
      sha1_hash = hashlib.sha1(content).hexdigest()
-     if ARGS.w:
+     if write:
           repo_root = util_find_root()
           if repo_root:
                sha_dir = os.path.join(repo_root,".cgit","objects",sha1_hash[:2])
@@ -114,8 +113,15 @@ def cmd_hash_object(ARGS):
           os.makedirs(sha_dir,exist_ok=True)
           with open(sha_file,"wb") as f:
                f.write(content)
-     
-     print(sha1_hash)
+     return sha1_hash
+
+def cmd_hash_object(ARGS):
+     if ARGS.stdin:
+          content = input().encode()
+     else:
+          with open(ARGS.file,"rb") as f:
+               content = f.read()
+     print(util_hash_object(content=content,object_type=ARGS.t,write=ARGS.w))
 
 def cmd_cat_file(ARGS:argparse.Namespace) -> None:
      repo_root = util_find_root()
@@ -130,6 +136,33 @@ def cmd_cat_file(ARGS:argparse.Namespace) -> None:
                print(content.split(b'\x00')[1].decode())
           elif ARGS.t:
                print(content.split(b'\x00')[0].decode())
+     else:
+          printerr("could not find a cgit repository")
+
+def util_write_tree(dir_path: str):
+     hash_list = []
+     for e in os.scandir(dir_path):
+          if e.name == ".cgit":
+               continue
+          full_path = os.path.join(dir_path,e.name)
+          object_type = ""
+          sha1_hash = ""
+          if e.is_file(follow_symlinks=False):
+               object_type="blob"
+               with open(full_path,"rb") as f:
+                    data = f.read()
+               sha1_hash = util_hash_object(content=data,write=True)
+          elif e.is_dir(follow_symlinks=False):
+               object_type="tree"
+               sha1_hash = util_write_tree(full_path)
+          hash_list.append((object_type,sha1_hash,full_path))
+     tree = ''.join (f'{objt} {shash} {name}\n' for objt, shash, name in sorted (hash_list))
+     return util_hash_object(tree.encode(),object_type="tree",write=True)
+
+def cmd_write_tree(ARGS:argparse.Namespace):
+     cgit_root = util_find_root()
+     if cgit_root:
+          util_write_tree(cgit_root)
      else:
           printerr("could not find a cgit repository")
 
