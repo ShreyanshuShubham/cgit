@@ -90,7 +90,9 @@ def cmd_init(ARGS:argparse.Namespace):
           printerr(f"the given path already a cgit repository")
      repo_path=os.path.join(ARGS.path,".cgit")
      os.makedirs(os.path.join(repo_path,"objects"),exist_ok=True)
-     os.makedirs(os.path.join(repo_path,"refs"),exist_ok=True)
+     os.makedirs(os.path.join(repo_path,"refs","heads"),exist_ok=True)
+     with open(os.path.join(repo_path,".cgit","HEAD"),"w") as f:
+          f.write("ref: refs/heads/main\n")
      print(f"Initialized empty cgit repository in {repo_path}")
 
 def cmd_hash_object(ARGS):
